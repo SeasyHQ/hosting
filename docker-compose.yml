@@ -5,14 +5,14 @@ services:
     restart: always
 
   plausible_db:
-    image: postgres:12
+    image: postgres:12-alpine
     volumes:
       - db-data:/var/lib/postgresql/data
     environment:
       - POSTGRES_PASSWORD=postgres
 
   plausible_events_db:
-    image: yandex/clickhouse-server:21.3.2.5
+    image: yandex/clickhouse-server:21-alpine
     volumes:
       - event-data:/var/lib/clickhouse
       - ./clickhouse/clickhouse-config.xml:/etc/clickhouse-server/config.d/logging.xml:ro
@@ -23,16 +23,27 @@ services:
         hard: 262144
 
   plausible:
+    container_name: plausible
     image: plausible/analytics:latest
     command: sh -c "sleep 10 && /entrypoint.sh db createdb && /entrypoint.sh db migrate && /entrypoint.sh db init-admin && /entrypoint.sh run"
     depends_on:
       - plausible_db
       - plausible_events_db
       - mail
-    ports:
-      - 8000:8000
+    expose:
+      - 8000
     env_file:
       - plausible-conf.env
+
+  nginx:
+    image: nginx:1.21-alpine
+    restart: always
+    ports:
+      - 80:80
+    volumes:
+      - ./nginx:/etc/nginx:ro
+    depends_on:
+      - plausible
 
 volumes:
   db-data:
